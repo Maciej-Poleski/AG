@@ -92,7 +92,7 @@ int main()
     cin >> z;
     while (z--) {
         int n;
-        vector<pair<int, int>> upper, lower;
+        vector<pair<int, int> > upper, lower;
         cin >> n;
         for (int i = 0; i < n; ++i) {
             int x, a, b;
@@ -107,28 +107,28 @@ int main()
         sort(upper.begin(), upper.end());
         sort(lower.begin(), lower.end());
         vector<Point> upperHull;
-        for (auto p : upper) {
+        for (vector<pair<int,int> >::const_iterator i=upper.begin(),e=upper.end();i!=e;++i) {
             while (upperHull.size() > 1 &&
-                   !turnsLeft(upperHull[upperHull.size() - 2], upperHull[upperHull.size() - 1], p)) {
+                   !turnsLeft(upperHull[upperHull.size() - 2], upperHull[upperHull.size() - 1], *i)) {
                 upperHull.pop_back();
             }
-            upperHull.push_back(p);
+            upperHull.push_back(*i);
         }
         vector<Point> lowerHull;
-        for (auto p : lower) {
+        for (vector<pair<int,int> >::const_iterator i=lower.begin(),e=lower.end();i!=e;++i) {
             while (lowerHull.size() > 1 &&
-                   !turnsRight(lowerHull[lowerHull.size() - 2], lowerHull[lowerHull.size() - 1], p)) {
+                   !turnsRight(lowerHull[lowerHull.size() - 2], lowerHull[lowerHull.size() - 1], *i)) {
                 lowerHull.pop_back();
             }
-            lowerHull.push_back(p);
+            lowerHull.push_back(*i);
         }
         int upperIterator = 1, lowerIterator = 1;
         bool ok = true;
         for (; upperIterator < upperHull.size() && lowerIterator < lowerHull.size();) {
-            auto currentLower = lowerHull[lowerIterator - 1];
-            auto nextLower = lowerHull[lowerIterator];
-            auto currentUpper = upperHull[upperIterator - 1];
-            auto nextUpper = upperHull[upperIterator];
+            Point currentLower = lowerHull[lowerIterator - 1];
+            Point nextLower = lowerHull[lowerIterator];
+            Point currentUpper = upperHull[upperIterator - 1];
+            Point nextUpper = upperHull[upperIterator];
             if (nextUpper.x <= nextLower.x) {
                 if (turnsLeft(currentLower, nextLower, nextUpper)) {
                     upperIterator += 1;
