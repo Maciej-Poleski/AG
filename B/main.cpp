@@ -125,9 +125,10 @@ static vector<Point> convexHull(const vector<pair<int, int>> &points)
         }
         result.push_back(p);
     }
-    for (auto i = points.crbegin(), e = points.crend(); i != e; ++i) {
+    const auto limit = result.size();
+    for (auto i = ++points.crbegin(), e = points.crend(); i != e; ++i) {
         // copy-paste
-        while (result.size() > 1 && !turnsRight(result[result.size() - 2], result[result.size() - 1], *i)) {
+        while (result.size() > limit && !turnsRight(result[result.size() - 2], result[result.size() - 1], *i)) {
             result.pop_back();
         }
         result.push_back(*i);
@@ -141,7 +142,7 @@ static int cyclicNext(int i, size_t size)
 {
     i += 1;
     if (i == size) {
-        return 0;
+        return 1;
     }
     return i;
 }
@@ -158,6 +159,24 @@ int main()
         for (auto &p : points) {
             cin >> p.first >> p.second;
         }
+#ifdef DEBUG
+        double referenceSolution = numeric_limits<double>::infinity();
+        for (auto p1 : points) {
+            for (auto p2 : points) {
+                double localMax = 0;
+                double baseLength = distance(p1, p2);
+                for (auto p3 : points) {
+                    double enigma = areaTangled(p3, p1, p2);
+                    if (enigma < 0) {
+                        goto fail;
+                    }
+                    localMax = max(localMax, enigma);
+                }
+                referenceSolution = min(referenceSolution, localMax / baseLength);
+                fail:;
+            }
+        }
+#endif
         sort(points.begin(), points.end());
         points.erase(unique(points.begin(), points.end()), points.end());
         if (points.size() < 3) {
@@ -168,13 +187,14 @@ int main()
         int j = 1;
         double dist = numeric_limits<double>::max();
         for (int i = 1; i < hull.size(); ++i) {
-            while (areaTangled(hull[cyclicNext(j, hull.size())], hull[i], hull[i - 1]) >=
+            while (areaTangled(hull[cyclicNext(j, hull.size())], hull[i], hull[i - 1]) >
                    areaTangled(hull[j], hull[i], hull[i - 1])) {
                 j = cyclicNext(j, hull.size());
             }
             dist = min(dist, areaTangled(hull[j], hull[i], hull[i - 1]) / distance(hull[i - 1], hull[i]));
         }
         cout << fixed << setprecision(7) << dist << '\n';
+        assert(abs(dist - referenceSolution) < 0.0000001);
     }
     return 0;
 }
