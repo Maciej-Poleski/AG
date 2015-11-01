@@ -7,3 +7,4 @@ add_definitions(-DDEBUG)
 
 set(SOURCE_FILES main.cpp)
 add_executable(solution ${SOURCE_FILES})
+add_executable(brut brut.cpp)

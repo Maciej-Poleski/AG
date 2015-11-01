@@ -212,7 +212,12 @@ static void fixCover(int node)
 {
     assert(node >= 0);
     assert(node <= root);
-    assert(tree[node].coverCount == 0); // Przypadek trywialny powinien zawsze być obsługiwany na miejsu
+//    if (tree[node].coverCount == 0) {
+//        tree[node].coveredRange = tree[leftChild(node)].coveredRange + tree[rightChild(node)].coveredRange;
+//    } else {
+//        tree[node].coveredRange = tree[node].endRange - tree[node].beginRange;
+//    }
+    assert(tree[node].coverCount == 0);
     tree[node].coveredRange = tree[leftChild(node)].coveredRange + tree[rightChild(node)].coveredRange;
 }
 
@@ -234,7 +239,9 @@ static void insertRange(int node, int begin, int end)
             insertRange(leftChild(node), begin, separation);
             insertRange(rightChild(node), separation, end);
         }
-        fixCover(node);
+        if (tree[node].coverCount == 0) {
+            fixCover(node);
+        }
     }
 }
 
@@ -322,7 +329,7 @@ int main()
         long area = 0;
         int lastX = events[0].x;
         for (auto event : events) {
-            const auto coveredRange = tree[root].coveredRange;
+            const long coveredRange = tree[root].coveredRange;
             const auto currentX = event.x;
             area += (currentX - lastX) * coveredRange;
             lastX = currentX;
