@@ -19,11 +19,11 @@ int main()
     int z = 1;
     cout << z << '\n';
     while (z--) {
-        int n = 15;
+        int n = 1000;
         cout << n << '\n';
         mt19937 engine(time(0));
-        uniform_int_distribution<int> xDist(0, 20);
-        uniform_int_distribution<int> yDist(0, 20);
+        uniform_int_distribution<int> xDist(0, 1000);
+        uniform_int_distribution<int> yDist(0, 1000);
         for (int i = 0; i < n; ++i) {
             int x1 = xDist(engine);
             int x2 = xDist(engine);

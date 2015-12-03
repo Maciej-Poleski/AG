@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <map>
 #include <set>
+#include <unistd.h>
+#include <fcntl.h>
 
 using namespace std;
 
@@ -253,14 +255,31 @@ static long gcd(long a, long b)
     }
 }
 
+static __int128 gcd(__int128 a, __int128 b)
+{
+    if (a <= 1 || b <= 1) {
+        return 1;
+    } else {
+        return __gcd(a, b);
+    }
+}
+
+static __int128 abs(__int128 n)
+{
+    if (n >= 0) {
+        return n;
+    } else {
+        return -n;
+    }
+}
+
 class Rational
 {
 public:
-    long numerator;
-    long denominator;
+    __int128 numerator;
+    __int128 denominator;
 
-    Rational(long numerator = 0, long denominator = 1) : numerator(numerator / __gcd(denominator, abs(numerator))),
-                                                         denominator(denominator / __gcd(denominator, abs(numerator)))
+    Rational(__int128 numerator = 0, __int128 denominator = 1) : numerator(numerator), denominator(denominator)
     {
         assert(this->denominator > 0);
     }
@@ -268,6 +287,12 @@ public:
     Rational reciprocal() const
     {
         return Rational(denominator, numerator);
+    }
+
+    Rational normalized() const
+    {
+        auto d = gcd(denominator, abs(numerator));
+        return Rational(numerator / d, denominator / d);
     }
 };
 
@@ -300,7 +325,7 @@ static Rational operator/(Rational lhs, Rational rhs)
 
 static bool operator==(Rational lhs, Rational rhs)
 {
-    return lhs.numerator == rhs.numerator && lhs.denominator == rhs.denominator;
+    return lhs.numerator * rhs.denominator == rhs.numerator * lhs.denominator;
 }
 
 static bool operator!=(Rational lhs, Rational rhs)
@@ -325,34 +350,34 @@ static bool operator<=(Rational lhs, Rational rhs)
 
 static ostream &operator<<(ostream &out, Rational n)
 {
-    return out << n.numerator << '/' << n.denominator;
+    return out << (long) n.numerator << '/' << (long) n.denominator;
 }
 
 static Point<Rational> crossLine(Rational a, Rational b, Rational c, Rational d)
 {
     auto x = (d - b) / (a - c);
     auto y = a * x + b;
-    return {x, y};
+    return {x.normalized(), y.normalized()};
 }
 
 // Punkt przecięcia odcinków p1-p2 i p3-p4
 static Point<Rational> crossSegment(const Point<Rational> &p1, const Point<Rational> &p2, const Point<Rational> &p3,
                                     const Point<Rational> &p4)
 {
-    Rational b = (p2.y * p1.x - p1.y * p2.x) / (p1.x - p2.x);
+    Rational b = ((p2.y * p1.x - p1.y * p2.x) / (p1.x - p2.x)).normalized();
     // Nie ma odcinków pionowych
-    Rational a = (p1.x != 0) ? (p1.y - b) / p1.x : (p2.y - b) / p2.x;
-    Rational d = (p4.y * p3.x - p3.y * p4.x) / (p3.x - p4.x);
-    Rational c = (p3.x != 0) ? (p3.y - d) / p3.x : (p4.y - d) / p4.x;
+    Rational a = ((p1.x != 0) ? (p1.y - b) / p1.x : (p2.y - b) / p2.x).normalized();
+    Rational d = ((p4.y * p3.x - p3.y * p4.x) / (p3.x - p4.x)).normalized();
+    Rational c = ((p3.x != 0) ? (p3.y - d) / p3.x : (p4.y - d) / p4.x).normalized();
     return crossLine(a, b, c, d);
 }
 
 static Rational getY(const Point<Rational> &p1, const Point<Rational> &p2, Rational x)
 {
-    Rational b = (p2.y * p1.x - p1.y * p2.x) / (p1.x - p2.x);
+    Rational b = ((p2.y * p1.x - p1.y * p2.x).normalized() / (p1.x - p2.x)).normalized();
     // Nie ma odcinków pionowych
-    Rational a = (p1.x != 0) ? (p1.y - b) / p1.x : (p2.y - b) / p2.x;
-    return a * x + b;
+    Rational a = ((p1.x != 0) ? (p1.y - b) / p1.x : (p2.y - b) / p2.x).normalized();
+    return (a * x + b).normalized();
 }
 
 namespace std {
@@ -380,23 +405,36 @@ static bool operator<(const Point<Rational> &lhs, const Point<Rational> &rhs)
 struct Event
 {
     vector<int> begins;
-//    vector<int> intersections;
-//    vector<int> ends;
-//
-//    int anything() const;
 };
 
-//int Event::anything() const
-//{
-//    if (!begins.empty()) {
-//        return begins.front();
-//    }
-//    if (!intersections.empty()) {
-//        return intersections.front();
-//    }
-//    assert(!ends.empty());
-//    return ends.front();
-//}
+static vector<pair<Point<Rational>, Point<Rational>>> input;
+
+static bool sweepComp(Rational x, int lhs, int rhs)
+{
+    return getY(input[lhs].first, input[lhs].second, x) < getY(input[rhs].first, input[rhs].second, x);
+};
+
+static Rational currentX;   // for sweepper
+
+struct SweepCompCurrentX
+{
+    bool operator()(int lhs, int rhs)
+    {
+        return sweepComp(currentX, lhs, rhs);
+    };
+};
+
+static map<Point<Rational>, Event> Q;
+
+static void findNewEvent(int sl, int sr, Rational y)
+{
+    if (segmentIntersect(input[sl].first, input[sl].second, input[sr].first, input[sr].second)) {
+        auto p = crossSegment(input[sl].first, input[sl].second, input[sr].first, input[sr].second);
+        if (p.x > currentX || (p.x == currentX && p.y > y)) {
+            Q[p]; // touch
+        }
+    }
+};
 
 int main()
 {
@@ -406,7 +444,7 @@ int main()
     while (z--) {
         int n;
         cin >> n;
-        vector<pair<Point<Rational>, Point<Rational>>> input;
+        input.clear();
         for (int i = 0; i < n; ++i) {
             int ax, ay, bx, by;
             cin >> ax >> ay >> bx >> by;
@@ -418,44 +456,22 @@ int main()
         }
         input.emplace_back();
         map<int, long> output;
-        map<Point<Rational>, Event> Q;
+        Q.clear();
         for (int i = 0; i < n; ++i) {
             Q[input[i].first].begins.push_back(i);
-            Q[input[i].second]; //.ends.push_back(i);
+            Q[input[i].second]; // touch
         }
 
-        Rational currentX;   // for sweepper
-
-        auto sweepComp = [&input](Rational x, int lhs, int rhs) {
-            return getY(input[lhs].first, input[lhs].second, x) < getY(input[rhs].first, input[rhs].second, x);
-        };
-        auto sweepCompCurrentX = [&currentX, sweepComp](int lhs, int rhs) {
-            return sweepComp(currentX, lhs, rhs);
-        };
-        multiset<int, decltype(sweepCompCurrentX)> M(sweepCompCurrentX);
+        multiset<int, SweepCompCurrentX> M;
         while (!Q.empty()) {
             auto point = Q.begin()->first;
             auto event = Q.begin()->second;
             Q.erase(Q.begin());
             clog << Q.size() << '\r';
-//            clog << "Zdarzenie w " << point.x << " " << point.y << "\n";
-//            clog << "Początek:\n";
-//            for (auto l : event.begins)
-//                clog << l << "\n";
-//            clog << "Przecięcie:\n";
-//            for (auto l : event.intersections)
-//                clog << l << "\n";
-//            clog << "Koniec:\n";
-//            for (auto l : event.ends)
-//                clog << l << "\n";
-//            clog << "Miotła:";
-//            for (auto p : M) {
-//                clog << " " << p;
-//            }
-//            clog << "\n";
             currentX = point.x;
             auto &U = event.begins;
-            input[n] = make_pair(Point<Rational>(currentX - 1, point.y), Point<Rational>(currentX + 1, point.y));
+            input[n] = make_pair(Point<Rational>((currentX - 1).normalized(), point.y),
+                                 Point<Rational>((currentX + 1).normalized(), point.y));
             auto equalOnSweep = M.equal_range(n);
             vector<int> L, C;
             for (auto i = equalOnSweep.first; i != equalOnSweep.second; ++i) {
@@ -468,16 +484,16 @@ int main()
             }
             if (L.size() + U.size() + C.size() > 1) {
                 output[L.size() + U.size() + C.size()] += 1;
-//                clog << "Punkt przecięcia " << point.x << " " << point.y << "\n";
             }
             const auto hint = M.erase(equalOnSweep.first, equalOnSweep.second);
-            const auto nextX = currentX + 1; // any x greater than current
-            auto sweepCompNextX = [sweepComp, nextX](int lhs, int rhs) {
+            const auto nextX = (currentX + 1).normalized(); // any x greater than current
+            auto sweepCompNextX = [nextX](int lhs, int rhs) {
                 return sweepComp(nextX, lhs, rhs);
             };
             sort(U.begin(), U.end(), sweepCompNextX);
 #ifdef DEBUG
             for (int i = 0; i < static_cast<int>(C.size()) - 1; ++i) {
+                SweepCompCurrentX sweepCompCurrentX;
                 assert(sweepCompNextX(C[i + 1], C[i]));
                 assert(!sweepCompCurrentX(C[i], C[i + 1]));
                 assert(!sweepCompCurrentX(C[i + 1], C[i]));
@@ -497,22 +513,6 @@ int main()
                 // all equal according to currentX
                 // multiset (C++11) inserts in upper_bound position
             }
-            auto findNewEvent = [&input, &currentX, &Q](int sl, int sr, Rational y) {
-                if (segmentIntersect(input[sl].first, input[sl].second, input[sr].first, input[sr].second)) {
-                    auto p = crossSegment(input[sl].first, input[sl].second, input[sr].first, input[sr].second);
-                    if (p.x > currentX || (p.x == currentX && p.y > y)) {
-//                        clog << "Wykryto nowe przecięcie w " << p.x << " " << p.y << " między " << sl << " a " << sr <<
-//                        "\n";
-                        Q[p]; //.intersections.push_back(sl);
-//                        Q[p].intersections.push_back(sr);
-                    } /*else {
-                        clog << "Zignorowano przecięcie w " << p.x << " " << p.y << " między " << sl << " a " << sr <<
-                        "\n";
-                    }*/
-                }/* else {
-                    clog << "Nie ma przecięcia między " << sl << " a " << sr << "\n";
-                }*/
-            };
             if (merged.empty()) {
                 if (sr != M.end() && sr != M.begin()) {
                     findNewEvent(*sl, *sr, point.y);
