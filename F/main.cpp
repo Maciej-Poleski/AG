@@ -1,3 +1,4 @@
+//#define DEBUG
 #ifndef DEBUG
 #define NDEBUG
 #endif
@@ -373,9 +374,30 @@ namespace std {
 
 /******************* ROZWIĄZANIE *****************/
 
-static bool operator<(const Point<Rational> &lhs, const Point<Rational> &rhs)
+static bool operator<(const Point<long> &lhs, const Point<long> &rhs)
 {
     return lhs.y > rhs.y || (lhs.y == rhs.y && lhs.x < rhs.x);
+}
+
+static bool isCCW(Point<long> p1, Point<long> p2, Point<long> p3)
+{
+    return turnsLeft<long>(p1, p2, p3) && turnsLeft<long>(p2, p3, p1) && turnsLeft<long>(p3, p1, p2);
+}
+
+// DEBUG
+static void checkCCW(Point<long> p1, Point<long> p2, Point<long> p3)
+{
+    assert(isCCW(p1, p2, p3));
+}
+
+static void printCCW(const vector<Point<long>> &input, int p1, int p2, int p3)
+{
+    if (isCCW(input[p1], input[p2], input[p3])) {
+        cout << p1 << ' ' << p2 << ' ' << p3 << '\n';
+    } else {
+        assert(isCCW(input[p1], input[p3], input[p2]));
+        cout << p1 << ' ' << p3 << ' ' << p2 << '\n';
+    }
 }
 
 int main()
@@ -386,7 +408,8 @@ int main()
     while (z--) {
         int n;
         cin >> n;
-        vector<Point<int>> input(n);
+        cout << n - 2 << '\n';
+        vector<Point<long>> input(n);
         for (auto &p : input) {
             cin >> p.x >> p.y;
         }
@@ -420,12 +443,18 @@ int main()
               [&input](int lhs, int rhs) {
                   return input[lhs] < input[rhs];
               });
+        assert(orderedPoints.size() == input.size());
 #ifdef DEBUG
         for (int i = 0; i < orderedPoints.size() - 1; ++i) {
             assert(input[orderedPoints[i]] < input[orderedPoints[i + 1]]);
         }
 #endif
         vector<int> S;
+        auto isOnStackSide = [&S, n](int index) {
+            assert(!S.empty());
+            return (index == (S.back() + 1) % n) || (index == (n + S.back() - 1) % n);
+        };
+        int count = 0;
         S.push_back(orderedPoints[0]);
         S.push_back(orderedPoints[1]);
         for (int i = 2; i < n - 1; ++i) {
@@ -435,49 +464,48 @@ int main()
 //            for (auto p : S)
 //                cout << " " << p;
 //            cout << "\nPunkt: " << ui << " " << (isOnLeftSide(ui) ? "L" : "R") << "\n";
-            if (isOnLeftSide(ui) != isOnLeftSide(S.back())) {
+            if (!isOnStackSide(ui)) {
+                assert(!S.empty());
+                const int o = S.back();
                 while (S.size() > 1) {
                     int t = S.back();
                     S.pop_back();
-                    if (isOnLeftSide(ui)) {
-                        cout << ui << ' ' << t << ' ' << S.back() << '\n';
-                    } else {
-                        cout << ui << ' ' << S.back() << ' ' << t << '\n';
-                    }
+                    printCCW(input, ui, t, S.back());
+                    count += 1;
                 }
                 S.pop_back();
                 assert(S.empty());
-                S.push_back(orderedPoints[i - 1]);
                 S.push_back(ui);
+                S.push_back(o);
             } else {
                 if (isOnLeftSide(ui)) {
-                    while (S.size() > 1 && turnsRight(input[ui], input[S.back()], input[S[S.size() - 2]])) {
+                    assert(isOnLeftSide(S.back()));
+                    while (S.size() > 1 && turnsRight<long>(input[ui], input[S.back()], input[S[S.size() - 2]])) {
                         int t = S.back();
                         S.pop_back();
-                        cout << ui << ' ' << S.back() << ' ' << t << '\n';
+                        printCCW(input, ui, t, S.back());
+                        count += 1;
                     }
                 } else {
-                    while (S.size() > 1 && turnsLeft(input[ui], input[S.back()], input[S[S.size() - 2]])) {
+                    assert(!isOnLeftSide(S.back()));
+                    while (S.size() > 1 && turnsLeft<long>(input[ui], input[S.back()], input[S[S.size() - 2]])) {
                         int t = S.back();
                         S.pop_back();
-                        cout << ui << ' ' << t << ' ' << S.back() << '\n';
+                        printCCW(input, ui, t, S.back());
+                        count += 1;
                     }
                 }
                 S.push_back(ui);
             }
         }
         int un = orderedPoints[n - 1];
+        assert(isOnStackSide(un));
         assert(S.size() > 1);
-//        cout << "Reszta:\n";
-        if (isOnLeftSide(S.back())) {
-            for (int i = 0; i < S.size() - 1; ++i) {
-                cout << un << ' ' << S[i] << ' ' << S[i + 1] << '\n';
-            }
-        } else {
-            for (int i = S.size() - 1; i > 0; --i) {
-                cout << un << ' ' << S[i] << ' ' << S[i - 1] << '\n';
-            }
+        for (int i = 0; i < S.size() - 1; ++i) {
+            printCCW(input, un, S[i], S[i + 1]);
+            count += 1;
         }
+        assert(count == n - 2);
     }
     return 0;
 }
