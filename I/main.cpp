@@ -1,3 +1,4 @@
+//#define DEBUG
 #ifndef DEBUG
 #define NDEBUG
 #else
@@ -556,9 +557,14 @@ static bool isLegal(int i, int j, int k, int l)
     }
     if (i >= n) {
         return true;
-    } else if (max(k, l) < n) {
+    } else if ((j < n) && (max(k, l) < n)) {
         // przypadek ogólny...
-        const Triangle t = {i, j, k};
+        Triangle t = {i, j, k};
+        if (!isCcw(input[t.a], input[t.b], input[t.c])) {
+            using std::swap;
+            swap(t.b, t.c);
+        }
+        assert(isCcw(input[t.a], input[t.b], input[t.c]));
         const double Ax = input[t.a].x;
         const double Ay = input[t.a].y;
         const double Bx = input[t.b].x;
@@ -759,6 +765,33 @@ static bool canBeSwapped(int i, int j, int r, int k)
     return segmentIntersect(input[i], input[j], input[r], input[k]);
 }
 
+static double getMstValue(vector<WeightedEdge> edges)
+{
+    sort(edges.begin(), edges.end());
+    FindUnion findUnion(n);
+    double result = .0;
+    for (const auto &e : edges) {
+        if (findUnion.tryUnion(e.a, e.b)) {
+            result += e.w;
+        }
+    }
+    return result;
+}
+
+static vector<WeightedEdge> generateEdgesFromInput()
+{
+    vector<WeightedEdge> result;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (i == j) {
+                continue;
+            }
+            result.push_back({i, j, distance(input[i], input[j])});
+        }
+    }
+    return result;
+}
+
 // struktury danych:
 // punkt wejściowy -> trójkąt go zawierający
 // trójkąt -> zbiór punktów w nim zawartych
@@ -766,6 +799,7 @@ static bool canBeSwapped(int i, int j, int r, int k)
 
 int main()
 {
+    // TODO: sprawdzić kalibracje isLegal (szczególnie wyznacznika)
     //close(0);
     //open("/home/local/AG/I/testy/t00.in", O_RDONLY);
     ios_base::sync_with_stdio(false);
@@ -913,14 +947,21 @@ int main()
 
         // MST
         vector<WeightedEdge> edges = edgeTo2Triangles.getEdges();
-        sort(edges.begin(), edges.end());
-        FindUnion findUnion(n);
-        double result = .0;
+#ifdef DEBUG
         for (const auto &e : edges) {
-            if (findUnion.tryUnion(e.a, e.b)) {
-                result += e.w;
-            }
+            cerr << "DE: " << e.a << " " << e.b << "\n";
         }
+#endif
+        double result = getMstValue(move(edges));
+#ifdef DEBUG
+        edges = generateEdgesFromInput();
+        double forceResult = getMstValue(move(edges));
+        if (abs(result - forceResult) >= 0.000000001) {
+            cerr << result << " != " << forceResult << "\n";
+            assert(false);
+        }
+#endif
+
         cout << fixed << setprecision(10) << result << '\n';
     }
     return 0;
