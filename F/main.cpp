@@ -1,4 +1,4 @@
-//#define DEBUG
+#define DEBUG
 #ifndef DEBUG
 #define NDEBUG
 #endif
@@ -17,8 +17,6 @@ using namespace std;
 
 template<typename Numeric>
 struct Point;
-template<typename Numeric>
-struct Vector;
 
 template<typename Numeric>
 struct Point
@@ -67,69 +65,6 @@ namespace std {
     };
 }
 
-
-template<typename Numeric>
-static istream &operator>>(const istream &in, Point<Numeric> &p)
-{
-    return in >> p.x >> p.y;
-}
-
-template<typename Numeric>
-struct Vector
-{
-    Numeric x, y;
-
-    Vector() = default;
-
-    Vector(Numeric x, Numeric y) : x(x), y(y)
-    { }
-
-    Vector(const Vector &) = default;
-
-    template<typename Numeric2>
-    Vector(const Vector<Numeric2> &o) : x(o.x), y(o.y)
-    { }
-
-    explicit Vector(const Point<Numeric> &p) : Vector(p.x, p.y)
-    { }
-};
-
-template<typename Numeric>
-static Vector<Numeric> operator-(Point<Numeric> a, Point<Numeric> b)
-{
-    return {a.x - b.x, a.y - b.y};
-}
-
-template<typename Numeric>
-static Numeric crossProduct(Vector<Numeric> a, Vector<Numeric> b)
-{
-    Numeric ax = a.x;
-    Numeric ay = a.y;
-    Numeric bx = b.x;
-    Numeric by = b.y;
-    return ax * by - ay * bx;
-}
-
-// (+/-)2*pole trójkąta
-// b, c - podstawa; a - wierzchołek
-template<typename Numeric>
-static Numeric areaTangled(Point<Numeric> a, Point<Numeric> b, Point<Numeric> c)
-{
-    return crossProduct(b - a, c - a);
-}
-
-static long distance2(Point<int> a, Point<int> b)
-{
-    long x = b.x - a.x;
-    long y = b.y - a.y;
-    return x * x + y * y;
-}
-
-static double distance(Point<int> a, Point<int> b)
-{
-    return hypot(b.x - a.x, b.y - a.y);
-}
-
 // >0 - lewo
 // =0 - prosto
 // <0 - prawo
@@ -173,205 +108,6 @@ static bool turnsRight(Point<Numeric> a, Point<Numeric> b, Point<Numeric> c)
     return ccw(a, b, c) < 0;
 }
 
-// potrzeba przynajmniej 2 punktów
-// oszczędna - punkty tylko w wierzchołkach
-// punkty muszą być unikalne i posortowane
-// pierwszy punkt jest też ostatnim
-static vector<Point<int>> convexHull(const vector<pair<int, int>> &points)
-{
-    // przy przerabianiu na wersje z punktami "na wprost" uwaga na dwukrotne przetworzenie ostatnigo punktu
-    vector<Point<int>> result;
-    for (auto p : points) {
-        while (result.size() > 1 && !turnsRight<long>(result[result.size() - 2], result[result.size() - 1], p)) {
-            result.pop_back();
-        }
-        result.push_back(p);
-    }
-    const auto limit = result.size();
-    for (auto i = ++points.crbegin(), e = points.crend(); i != e; ++i) {
-        // copy-paste
-        while (result.size() > limit && !turnsRight<long>(result[result.size() - 2], result[result.size() - 1], *i)) {
-            result.pop_back();
-        }
-        result.push_back(*i);
-    }
-    return result; // copy elision
-}
-
-// Składa górną pół-otoczke z dwóch górnych pół-otoczek
-static vector<Point<int>> buildUpperHull(const vector<Point<int>> &left, const vector<Point<int>> &right)
-{
-    vector<Point<int>> result(left);
-    for (auto p : right) {
-        while (result.size() > 1 && !turnsRight<long>(result[result.size() - 2], result[result.size() - 1], p)) {
-            result.pop_back();
-        }
-        result.push_back(p);
-    }
-    return result;
-}
-
-// a,b,c - współliniowe
-// czy b leży pomiędzy a i c
-// 17_geometria1/4
-template<typename Numeric>
-static bool onSegment(Point<Numeric> a, Point<Numeric> c, Point<Numeric> b)
-{
-    if ((min(a.x, c.x) <= b.x) && (b.x <= max(a.x, c.x)) && (min(a.y, c.y) <= b.y) && (b.y <= max(a.y, c.y))) {
-        return true;
-    }
-    return false;
-}
-
-// Czy odcinki p0-p1 i p2-p3 przecinają się (również pojedyńcze punkty)
-template<typename Numeric>
-static bool segmentIntersect(Point<Numeric> p0, Point<Numeric> p1, Point<Numeric> p2, Point<Numeric> p3)
-{
-    auto I1 = ccw(p2, p3, p0);
-    auto I2 = ccw(p2, p3, p1);
-    auto I3 = ccw(p0, p1, p2);
-    auto I4 = ccw(p0, p1, p3);
-    if (I1 * I2 < 0 && I3 * I4 < 0) {
-        return true;
-    } else if (I1 == 0 && onSegment(p2, p3, p0)) {
-        return true;
-    } else if (I2 == 0 && onSegment(p2, p3, p1)) {
-        return true;
-    } else if (I3 == 0 && onSegment(p0, p1, p2)) {
-        return true;
-    } else if (I4 == 0 && onSegment(p0, p1, p3)) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-static long gcd(long a, long b)
-{
-    if (a <= 1 || b <= 1) {
-        return 1;
-    } else {
-        return __gcd(a, b);
-    }
-}
-
-class Rational
-{
-public:
-    long numerator;
-    long denominator;
-
-    Rational(long numerator = 0, long denominator = 1) : numerator(numerator / __gcd(denominator, abs(numerator))),
-                                                         denominator(denominator / __gcd(denominator, abs(numerator)))
-    {
-        assert(this->denominator > 0);
-    }
-
-    Rational reciprocal() const
-    {
-        return Rational(denominator, numerator);
-    }
-};
-
-static Rational operator+(Rational lhs, Rational rhs)
-{
-    return Rational(lhs.numerator * rhs.denominator + rhs.numerator * lhs.denominator,
-                    lhs.denominator * rhs.denominator);
-}
-
-static Rational operator-(Rational lhs, Rational rhs)
-{
-    return Rational(lhs.numerator * rhs.denominator - rhs.numerator * lhs.denominator,
-                    lhs.denominator * rhs.denominator);
-}
-
-static Rational operator*(Rational lhs, Rational rhs)
-{
-    return Rational(lhs.numerator * rhs.numerator, lhs.denominator * rhs.denominator);
-}
-
-static Rational operator/(Rational lhs, Rational rhs)
-{
-    assert(rhs.numerator != 0);
-    if (rhs.numerator >= 0) {
-        return Rational(lhs.numerator * rhs.denominator, lhs.denominator * rhs.numerator);
-    } else {
-        return Rational(-(lhs.numerator * rhs.denominator), -(lhs.denominator * rhs.numerator));
-    }
-}
-
-static bool operator==(Rational lhs, Rational rhs)
-{
-    return lhs.numerator == rhs.numerator && lhs.denominator == rhs.denominator;
-}
-
-static bool operator!=(Rational lhs, Rational rhs)
-{
-    return lhs.numerator != rhs.numerator || lhs.denominator != rhs.denominator;
-}
-
-static bool operator<(Rational lhs, Rational rhs)
-{
-    return lhs.numerator * rhs.denominator < rhs.numerator * lhs.denominator;
-}
-
-static bool operator>(Rational lhs, Rational rhs)
-{
-    return rhs < lhs;
-}
-
-static bool operator<=(Rational lhs, Rational rhs)
-{
-    return lhs.numerator * rhs.denominator <= rhs.numerator * lhs.denominator;
-}
-
-static ostream &operator<<(ostream &out, Rational n)
-{
-    return out << n.numerator << '/' << n.denominator;
-}
-
-static Point<Rational> crossLine(Rational a, Rational b, Rational c, Rational d)
-{
-    auto x = (d - b) / (a - c);
-    auto y = a * x + b;
-    return {x, y};
-}
-
-// Punkt przecięcia odcinków p1-p2 i p3-p4
-static Point<Rational> crossSegment(const Point<Rational> &p1, const Point<Rational> &p2, const Point<Rational> &p3,
-                                    const Point<Rational> &p4)
-{
-    Rational b = (p2.y * p1.x - p1.y * p2.x) / (p1.x - p2.x);
-    // Nie ma odcinków pionowych
-    Rational a = (p1.x != 0) ? (p1.y - b) / p1.x : (p2.y - b) / p2.x;
-    Rational d = (p4.y * p3.x - p3.y * p4.x) / (p3.x - p4.x);
-    Rational c = (p3.x != 0) ? (p3.y - d) / p3.x : (p4.y - d) / p4.x;
-    return crossLine(a, b, c, d);
-}
-
-static Rational getY(const Point<Rational> &p1, const Point<Rational> &p2, Rational x)
-{
-    Rational b = (p2.y * p1.x - p1.y * p2.x) / (p1.x - p2.x);
-    // Nie ma odcinków pionowych
-    Rational a = (p1.x != 0) ? (p1.y - b) / p1.x : (p2.y - b) / p2.x;
-    return a * x + b;
-}
-
-namespace std {
-    template<>
-    struct hash<Rational>
-    {
-        typedef Rational argument_type;
-        typedef size_t result_type;
-
-        size_t operator()(Rational r) const
-        {
-            size_t a = r.denominator;
-            return r.numerator ^ (a << 1);
-        }
-    };
-}
-
 /******************* ROZWIĄZANIE *****************/
 
 static bool operator<(const Point<long> &lhs, const Point<long> &rhs)
@@ -384,21 +120,91 @@ static bool isCCW(Point<long> p1, Point<long> p2, Point<long> p3)
     return turnsLeft<long>(p1, p2, p3) && turnsLeft<long>(p2, p3, p1) && turnsLeft<long>(p3, p1, p2);
 }
 
-// DEBUG
-static void checkCCW(Point<long> p1, Point<long> p2, Point<long> p3)
+
+/****************** WERYFIKATOR ***********************/
+
+struct Edge : pair<int, int>
 {
-    assert(isCCW(p1, p2, p3));
+    Edge(int a, int b) : pair<int, int>(a, b)
+    {
+        if (a > b) {
+            using std::swap;
+            swap(first, second);
+        }
+    }
+};
+
+namespace std {
+    template<>
+    struct hash<Edge>
+    {
+        size_t operator()(const Edge &o) const noexcept
+        {
+            return static_cast<size_t>(o.first) << 32 | o.second;
+        }
+    };
 }
+
+static vector<array<int, 3>> output;
 
 static void printCCW(const vector<Point<long>> &input, int p1, int p2, int p3)
 {
     if (isCCW(input[p1], input[p2], input[p3])) {
+#ifdef DEBUG
+        output.push_back({p1, p2, p3});
+#endif
         cout << p1 << ' ' << p2 << ' ' << p3 << '\n';
     } else {
         assert(isCCW(input[p1], input[p3], input[p2]));
+#ifdef DEBUG
+        output.push_back({p1, p3, p2});
+#endif
         cout << p1 << ' ' << p3 << ' ' << p2 << '\n';
     }
 }
+
+#ifndef DEBUG
+#define invokeVerification(x)
+#else
+
+static void invokeVerification(const vector<Point<long>> &input)
+{
+    // sprawdź ilość
+    assert(input.size() == output.size() + 2);
+
+    // sprawdź CCW
+    for (const auto &t : output) {
+        assert(isCCW(input[t[0]], input[t[1]], input[t[2]]));
+    }
+
+    unordered_map<Edge, vector<int>> edgesToPoints;
+    for (size_t i = 0; i < output.size(); ++i) {
+        edgesToPoints[{output[i][0], output[i][1]}].push_back(i);
+        edgesToPoints[{output[i][1], output[i][2]}].push_back(i);
+        edgesToPoints[{output[i][2], output[i][0]}].push_back(i);
+    }
+
+    size_t singleEdgesCount = 0;
+    for (const auto &edge : edgesToPoints) {
+        const int n = input.size();
+        if (edge.second.size() == 1) {
+            // oczekiwana krawędź (zewnętrzna) wielokąta
+            assert((edge.first.first == (edge.first.second + 1) % n) ||
+                   ((edge.first.first + 1) % n == edge.first.second));
+            singleEdgesCount += 1;
+        } else {
+            // krawędź wewnątrzna ma zawsze 2 sąsiednie trójkąty
+            assert(edge.second.size() == 2);
+        }
+    }
+    // sprawdź czy krawędzi zewnętrznych jest tyle ile trzeba
+    assert(singleEdgesCount == input.size());
+
+    // reset
+    output.clear();
+}
+
+#endif
 
 int main()
 {
@@ -506,6 +312,7 @@ int main()
             count += 1;
         }
         assert(count == n - 2);
+        invokeVerification(input);
     }
     return 0;
 }
